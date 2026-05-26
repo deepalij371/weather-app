@@ -1,19 +1,79 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { Trash2, MapPin } from 'lucide-react';
+import { Trash2, MapPin, Compass } from 'lucide-react';
 import { useSelector } from 'react-redux';
-const SavedLocations = ({ onSelectLocation }) => {
+import { locationApi } from '../services/api';
+
+const SavedLocations = ({ onSelectLocation, refreshTrigger, theme }) => {
   const [locations, setLocations] = useState([]);
+  const [fetching, setFetching] = useState(false);
   const { token } = useSelector((state) => state.auth);
-  useEffect(() => { if (token) fetch(); }, [token]);
-  const fetch = async () => { try { const res = await axios.get('http://localhost:8080/api/locations', { headers: { Authorization: 'Bearer ' + token } }); setLocations(res.data); } catch (e) {} };
-  const del = async (id) => { try { await axios.delete('http://localhost:8080/api/locations/' + id, { headers: { Authorization: 'Bearer ' + token } }); setLocations(locations.filter(l => l.id !== id)); } catch (e) {} };
+
+  const cardStyle = theme?.cardBg || 'bg-white text-slate-800 shadow-lg';
+  const textSecondary = theme?.textSecondary || 'text-slate-500';
+  const accentStyle = theme?.accent || 'bg-blue-50 text-blue-800';
+
+  useEffect(() => {
+    if (token) {
+      fetchLocations();
+    }
+  }, [token, refreshTrigger]);
+
+  const fetchLocations = async () => {
+    setFetching(true);
+    try {
+      const res = await locationApi.getSavedLocations();
+      setLocations(res.data);
+    } catch (e) {
+      console.error('Failed to load saved locations', e);
+    } finally {
+      setFetching(false);
+    }
+  };
+
+  const handleDelete = async (id, e) => {
+    e.stopPropagation(); // Avoid selecting location when deleting
+    try {
+      await locationApi.deleteLocation(id);
+      setLocations(locations.filter(l => l.id !== id));
+    } catch (err) {
+      console.error('Failed to delete location', err);
+    }
+  };
+
   if (!token) return null;
+
   return (
-    <div className='bg-white p-6 rounded-xl shadow-lg w-full mx-auto'>
-      <h3 className='text-xl font-bold mb-4 flex items-center gap-2'><MapPin className='text-blue-500' /> Saved Locations</h3>
-      <ul className='divide-y'>{locations.map((l) => (<li key={l.id} className='py-3 flex justify-between items-center'><button onClick={() => onSelectLocation(l.cityName)} className='hover:text-blue-500'>{l.cityName}</button><button onClick={() => del(l.id)} className='text-red-500'><Trash2 size={18} /></button></li>))}</ul>
+    <div className={`p-6 rounded-3xl w-full mx-auto shadow-2xl transition-all duration-300 ${cardStyle}`}>
+      <h3 className='text-2xl font-bold mb-6 flex items-center gap-2 tracking-tight'>
+        <MapPin className='text-red-400 w-6 h-6 animate-pulse' /> Saved Favorites
+      </h3>
+      {fetching && locations.length === 0 ? (
+        <div className="flex justify-center py-4">
+          <Compass className="animate-spin text-white/50 w-8 h-8" />
+        </div>
+      ) : locations.length === 0 ? (
+        <p className={`text-center py-4 font-light ${textSecondary}`}>No saved locations yet. Search for a city and save it!</p>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          {locations.map((l) => (
+            <div 
+              key={l.id} 
+              onClick={() => onSelectLocation(l.cityName)}
+              className={`p-4 rounded-2xl flex justify-between items-center cursor-pointer transition-all duration-200 hover:scale-102 hover:bg-white/20 border border-white/5 ${accentStyle}`}
+            >
+              <span className="font-semibold text-lg truncate pr-2">{l.cityName}</span>
+              <button 
+                onClick={(e) => handleDelete(l.id, e)} 
+                className='p-2 bg-white/10 hover:bg-red-500/20 text-red-300 hover:text-red-100 rounded-xl transition-all duration-200'
+              >
+                <Trash2 size={18} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
+
 export default SavedLocations;
