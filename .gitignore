@@ -1,0 +1,31 @@
+```gitignore id="eh1y66"
+# =========================
+# Backend
+# =========================
+backend/target/
+*.log
+*.class
+
+# =========================
+# Frontend
+# =========================
+frontend/node_modules/
+frontend/build/
+frontend/.cache/
+
+# React cache
+frontend/node_modules/.cache/
+
+# =========================
+# IDE Files
+# =========================
+.idea/
+.vscode/
+*.iml
+
+# =========================
+# OS Files
+# =========================
+.DS_Store
+Thumbs.db
+```

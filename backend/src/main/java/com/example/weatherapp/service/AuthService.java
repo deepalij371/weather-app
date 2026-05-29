@@ -12,6 +12,12 @@ import java.util.Collections;
     private final UserRepository userRepository; private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService; private final AuthenticationManager authenticationManager;
     public AuthResponse register(AuthRequest request) {
+        if (userRepository.findByUsername(request.getUsername()).isPresent()) {
+            throw new IllegalArgumentException("Username is already taken");
+        }
+        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
+            throw new IllegalArgumentException("Email is already registered");
+        }
         var user = User.builder().username(request.getUsername()).email(request.getEmail()).password(passwordEncoder.encode(request.getPassword())).build();
         userRepository.save(user);
         var userDetails = org.springframework.security.core.userdetails.User.builder().username(user.getUsername()).password(user.getPassword()).authorities(Collections.emptyList()).build();

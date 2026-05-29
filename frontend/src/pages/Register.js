@@ -1,17 +1,36 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import axios from 'axios';
 import { useDispatch, useSelector } from 'react-redux';
 import { loginSuccess, setAuthError, setAuthLoading } from '../redux/slices/authSlice';
-import { User, Mail, Lock, UserPlus, CloudSun, AlertCircle, RefreshCw } from 'lucide-react';
+import { authApi, getApiErrorMessage } from '../services/api';
+import { User, Mail, Lock, UserPlus, CloudLightning, AlertCircle, Loader2, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
+
+const PasswordStrength = ({ password }) => {
+  const checks = [
+    { label: '8+ characters', ok: password.length >= 8 },
+    { label: 'Uppercase', ok: /[A-Z]/.test(password) },
+    { label: 'Number', ok: /\d/.test(password) },
+  ];
+  if (!password) return null;
+  return (
+    <div className='flex gap-2 mt-2'>
+      {checks.map(c => (
+        <div key={c.label} className={`flex items-center gap-1 text-xs font-medium transition-colors duration-200 ${c.ok ? 'text-green-400' : 'text-slate-600'}`}>
+          <CheckCircle2 size={11} />
+          <span>{c.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 const Register = () => {
   const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
+  const [email,    setEmail]    = useState('');
   const [password, setPassword] = useState('');
+  const [showPass, setShowPass] = useState(false);
   const navigate = useNavigate();
   const dispatch = useDispatch();
-
   const { loading, error } = useSelector((state) => state.auth);
 
   const handleSubmit = async (ev) => {
@@ -20,110 +39,115 @@ const Register = () => {
       dispatch(setAuthError('Please fill in all fields.'));
       return;
     }
-
     dispatch(setAuthLoading());
     try {
-      const res = await axios.post('http://localhost:8080/api/auth/register', {
+      const res = await authApi.register({
         username: username.trim(),
         email: email.trim(),
-        password: password
+        password,
       });
       dispatch(loginSuccess(res.data));
       navigate('/');
     } catch (err) {
-      const message = err.response?.data?.message || 'Registration failed. Try again.';
-      dispatch(setAuthError(message));
+      dispatch(setAuthError(getApiErrorMessage(err, 'Registration failed. Try again.')));
     }
   };
 
   return (
-    <div className='min-h-[90vh] flex items-center justify-center bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 p-6'>
-      <div className='w-full max-w-md bg-white/10 backdrop-blur-lg border border-white/20 p-8 md:p-10 rounded-3xl shadow-2xl text-white transform hover:scale-101 transition-all duration-300'>
-        
-        {/* Brand Header */}
+    <div className='professional-bg relative flex min-h-[92vh] items-center justify-center overflow-hidden p-6'>
+      <div className="weather-sky" aria-hidden="true">
+        <div className="sky-sun" />
+        <div className="sky-cloud sky-cloud-a" />
+        <div className="sky-rain" />
+      </div>
+
+      {/* Card */}
+      <div className='glass-card w-full max-w-md animate-scale-up'
+        style={{ padding: '40px', boxShadow: '0 24px 80px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.12)' }}>
+
+        {/* Accent top line */}
+        <div className='absolute top-0 left-0 right-0 h-px rounded-t-3xl'
+          style={{ background: 'linear-gradient(90deg, transparent, rgba(139,92,246,0.8), rgba(99,102,241,0.8), transparent)' }} />
+
+        {/* Brand */}
         <div className='text-center mb-8'>
-          <div className='inline-flex p-4 bg-blue-500/20 rounded-full border border-blue-400/20 mb-3 animate-pulse'>
-            <CloudSun size={40} className="text-blue-400" />
+          <div className='relative inline-flex mb-4'>
+            <div className='absolute inset-0 bg-violet-500 rounded-2xl blur-xl opacity-50 animate-glow-pulse' />
+            <div className='relative p-4 rounded-2xl'
+              style={{ background: 'linear-gradient(135deg, #8b5cf6, #6366f1)', boxShadow: '0 8px 24px rgba(139,92,246,0.4)' }}>
+              <CloudLightning size={32} className='text-white' />
+            </div>
           </div>
-          <h2 className='text-3xl font-extrabold tracking-tight'>Create Account</h2>
-          <p className='text-slate-300 font-light mt-1'>Join Atmosphere for custom dashboards</p>
+          <h1 className='text-3xl font-black tracking-tight text-white mb-1'>Create account</h1>
+          <p className='text-slate-400 text-sm font-medium'>Join Atmosphere for live weather insights</p>
         </div>
 
-        {/* Warning messages */}
+        {/* Error */}
         {error && (
-          <div className='mb-6 flex items-center gap-3 p-4 bg-red-500/20 border border-red-500/30 rounded-2xl text-red-200 text-sm'>
-            <AlertCircle size={20} className="flex-shrink-0" />
-            <span>{error}</span>
+          <div className='mb-5 flex items-start gap-3 p-4 rounded-2xl animate-slide-down'
+            style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)' }}>
+            <AlertCircle size={18} className='text-red-400 flex-shrink-0 mt-0.5' />
+            <span className='text-red-300 text-sm font-medium'>{error}</span>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className='space-y-5'>
-          {/* Username Input */}
-          <div className='space-y-2'>
-            <label className='text-xs uppercase tracking-wider font-semibold text-slate-300'>Username</label>
-            <div className='relative flex items-center'>
-              <User className='absolute left-4 text-slate-400 w-5 h-5' />
-              <input 
-                className='w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-2xl outline-none focus:border-blue-500 text-white placeholder-slate-500 transition-colors' 
-                value={username} 
-                onChange={ev => setUsername(ev.target.value)} 
-                placeholder='Enter username'
-              />
+        <form onSubmit={handleSubmit} className='space-y-4'>
+          {/* Username */}
+          <div className='space-y-1.5'>
+            <label className='text-xs uppercase tracking-widest font-bold text-slate-400'>Username</label>
+            <div className='relative'>
+              <User size={16} className='absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none' />
+              <input className='premium-input' value={username} onChange={ev => setUsername(ev.target.value)}
+                placeholder='Choose a username' autoComplete='username' />
             </div>
           </div>
 
-          {/* Email Input */}
-          <div className='space-y-2'>
-            <label className='text-xs uppercase tracking-wider font-semibold text-slate-300'>Email Address</label>
-            <div className='relative flex items-center'>
-              <Mail className='absolute left-4 text-slate-400 w-5 h-5' />
-              <input 
-                className='w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-2xl outline-none focus:border-blue-500 text-white placeholder-slate-500 transition-colors' 
-                type='email'
-                value={email} 
-                onChange={ev => setEmail(ev.target.value)} 
-                placeholder='you@example.com'
-              />
+          {/* Email */}
+          <div className='space-y-1.5'>
+            <label className='text-xs uppercase tracking-widest font-bold text-slate-400'>Email Address</label>
+            <div className='relative'>
+              <Mail size={16} className='absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none' />
+              <input className='premium-input' type='email' value={email} onChange={ev => setEmail(ev.target.value)}
+                placeholder='you@example.com' autoComplete='email' />
             </div>
           </div>
 
-          {/* Password Input */}
-          <div className='space-y-2'>
-            <label className='text-xs uppercase tracking-wider font-semibold text-slate-300'>Password</label>
-            <div className='relative flex items-center'>
-              <Lock className='absolute left-4 text-slate-400 w-5 h-5' />
-              <input 
-                className='w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-2xl outline-none focus:border-blue-500 text-white placeholder-slate-500 transition-colors' 
-                type='password' 
-                value={password} 
-                onChange={ev => setPassword(ev.target.value)} 
-                placeholder='••••••••'
-              />
+          {/* Password */}
+          <div className='space-y-1.5'>
+            <label className='text-xs uppercase tracking-widest font-bold text-slate-400'>Password</label>
+            <div className='relative'>
+              <Lock size={16} className='absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none' />
+              <input className='premium-input' type={showPass ? 'text' : 'password'} value={password}
+                onChange={ev => setPassword(ev.target.value)} placeholder='Create a strong password'
+                autoComplete='new-password' style={{ paddingRight: '46px' }} />
+              <button type='button' onClick={() => setShowPass(!showPass)}
+                className='absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors'>
+                {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
             </div>
+            <PasswordStrength password={password} />
           </div>
 
-          {/* Submit Button */}
-          <button 
-            type='submit'
-            disabled={loading}
-            className='w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white py-3.5 rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 active:scale-98 transition-all duration-200 disabled:opacity-50'
-          >
-            {loading ? (
-              <RefreshCw className="w-5 h-5 animate-spin" />
-            ) : (
-              <>
-                <UserPlus size={20} />
-                <span>Register</span>
-              </>
-            )}
+          <button type='submit' disabled={loading} className='btn-primary mt-1'>
+            {loading
+              ? <Loader2 className='w-5 h-5 animate-spin' />
+              : <><UserPlus size={18} /><span>Create Account</span></>}
           </button>
         </form>
 
-        {/* Navigation link */}
-        <p className='text-center text-sm font-light mt-8 text-slate-300'>
-          Already have an account?{' '}
-          <Link to='/login' className='text-blue-400 font-bold hover:underline ml-1'>Log In</Link>
-        </p>
+        <div className='flex items-center gap-3 my-6'>
+          <div className='flex-1 h-px' style={{ background: 'rgba(255,255,255,0.08)' }} />
+          <span className='text-xs text-slate-600 font-medium'>Already a member?</span>
+          <div className='flex-1 h-px' style={{ background: 'rgba(255,255,255,0.08)' }} />
+        </div>
+
+        <Link to='/login'
+          className='flex items-center justify-center gap-2 w-full py-3 rounded-2xl text-sm font-bold text-violet-300 transition-all duration-200 hover:text-white'
+          style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)' }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(139,92,246,0.18)'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(139,92,246,0.1)'; }}>
+          Sign in to existing account
+        </Link>
       </div>
     </div>
   );
