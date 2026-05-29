@@ -1,38 +1,46 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { setWeather, setForecast, setLoading, setError } from '../redux/slices/weatherSlice';
-import { weatherApi, locationApi, getUserLocation } from '../services/api';
+import { weatherApi, locationApi, getUserLocation, getApiErrorMessage } from '../services/api';
 import SearchBar from '../components/SearchBar';
 import CurrentWeather from '../components/CurrentWeather';
 import Forecast from '../components/Forecast';
 import WeatherChart from '../components/WeatherChart';
 import SavedLocations from '../components/SavedLocations';
-import { MapPin, BookmarkPlus, Compass, AlertCircle, RefreshCw } from 'lucide-react';
+import LiveClock from '../components/LiveClock';
+import { MapPin, BookmarkPlus, AlertCircle, RefreshCw, Loader2, RotateCcw } from 'lucide-react';
 import useWeatherTheme from '../hooks/useWeatherTheme';
+
+const AUTO_REFRESH_MS = 5 * 60 * 1000;
 
 const Dashboard = () => {
   const dispatch = useDispatch();
   const { current, forecast, loading, error } = useSelector((state) => state.weather);
   const { token } = useSelector((state) => state.auth);
-  
+
   const [isCelsius, setIsCelsius] = useState(true);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [savingLocation, setSavingLocation] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [autoRefreshing, setAutoRefreshing] = useState(false);
+  const lastParamsRef = useRef(null);
 
   const theme = useWeatherTheme(current?.weather[0]?.main);
 
   const fetchWeatherAndForecast = useCallback(async (params) => {
     dispatch(setLoading());
+    lastParamsRef.current = params;
+
     try {
-      const [w, f] = await Promise.all([
+      const [weather, forecastData] = await Promise.all([
         weatherApi.getCurrentWeather(params),
-        weatherApi.getForecast(params)
+        weatherApi.getForecast(params),
       ]);
-      dispatch(setWeather(w.data));
-      dispatch(setForecast(f.data));
+      dispatch(setWeather(weather.data));
+      dispatch(setForecast(forecastData.data));
+      setLastUpdated(new Date());
     } catch (e) {
-      const message = e.response?.data?.message || 'City not found. Please try another name.';
-      dispatch(setError(message));
+      dispatch(setError(getApiErrorMessage(e, 'City not found. Please try another name.')));
     }
   }, [dispatch]);
 
@@ -41,15 +49,35 @@ const Dashboard = () => {
     try {
       const coords = await getUserLocation();
       fetchWeatherAndForecast(coords);
-    } catch (e) {
-      // Default fallback search: London
+    } catch {
       fetchWeatherAndForecast({ city: 'London' });
     }
   }, [dispatch, fetchWeatherAndForecast]);
 
+  const silentRefresh = useCallback(async () => {
+    if (!lastParamsRef.current) return;
+    setAutoRefreshing(true);
+    try {
+      const [weather, forecastData] = await Promise.all([
+        weatherApi.getCurrentWeather(lastParamsRef.current),
+        weatherApi.getForecast(lastParamsRef.current),
+      ]);
+      dispatch(setWeather(weather.data));
+      dispatch(setForecast(forecastData.data));
+      setLastUpdated(new Date());
+    } catch {
+      // Keep the current dashboard visible if a background refresh fails.
+    } finally {
+      setAutoRefreshing(false);
+    }
+  }, [dispatch]);
+
+  useEffect(() => { handleAuto(); }, [handleAuto]);
+
   useEffect(() => {
-    handleAuto();
-  }, [handleAuto]);
+    const id = setInterval(silentRefresh, AUTO_REFRESH_MS);
+    return () => clearInterval(id);
+  }, [silentRefresh]);
 
   const handleSaveLocation = async () => {
     if (!current) return;
@@ -58,7 +86,7 @@ const Dashboard = () => {
       await locationApi.saveLocation({
         cityName: current.name,
         latitude: current.coord.lat,
-        longitude: current.coord.lon
+        longitude: current.coord.lon,
       });
       setRefreshTrigger(prev => prev + 1);
     } catch (e) {
@@ -68,90 +96,161 @@ const Dashboard = () => {
     }
   };
 
+  const updatedLabel = lastUpdated
+    ? lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : null;
+
   return (
-    <div className={`min-h-screen transition-all duration-700 ${theme.background} p-4 md:p-8 font-sans pb-16`}>
-      <div className='max-w-5xl mx-auto'>
-        {/* Top interactive panel */}
-        <div className='flex flex-col md:flex-row gap-4 mb-10 items-center justify-between bg-white/10 backdrop-blur-md p-4 rounded-3xl border border-white/10 shadow-lg'>
-          <div className="w-full md:w-auto">
-            <SearchBar onSearch={(city) => fetchWeatherAndForecast({ city })} theme={theme} />
+    <div className="professional-dashboard min-h-screen font-sans text-white transition-all duration-700">
+      <div className="dashboard-backdrop" aria-hidden="true">
+        <div className="dashboard-mesh" />
+        <div className="dashboard-horizon" />
+        <div className="dashboard-orbit dashboard-orbit-a" />
+        <div className="dashboard-orbit dashboard-orbit-b" />
+        <div className="dashboard-rain" />
+      </div>
+
+      <div className="relative mx-auto max-w-6xl px-4 py-6 pb-20 md:px-6 lg:py-8">
+        <section className="mb-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="animate-slide-right">
+            <p className="mb-2 text-xs font-black uppercase tracking-[0.22em] text-cyan-200/70">
+              Live weather command center
+            </p>
+            <h1 className="max-w-3xl text-3xl font-black tracking-tight text-white md:text-5xl">
+              Professional weather intelligence for every saved city.
+            </h1>
+            <p className="mt-3 max-w-2xl text-sm font-medium leading-6 text-slate-300 md:text-base">
+              Search conditions, compare forecast trends, and keep frequently checked locations close at hand.
+            </p>
           </div>
-          
-          <div className='flex gap-3 items-center justify-end w-full md:w-auto'>
-            {/* Unit toggle */}
-            <button 
-              onClick={() => setIsCelsius(!isCelsius)} 
-              className={`px-5 py-3 rounded-2xl font-bold transition-all duration-300 border border-white/20 flex items-center gap-1 shadow-md hover:scale-105 ${theme.cardBg}`}
-            >
-              <span>Unit:</span>
-              <span className="text-blue-400 font-extrabold">{isCelsius ? '°C' : '°F'}</span>
-            </button>
-            
-            {/* Geolocation Button */}
-            <button 
-              onClick={handleAuto} 
-              className={`p-3 rounded-2xl transition-all duration-300 border border-white/20 shadow-md hover:scale-105 hover:rotate-12 ${theme.cardBg}`}
-              title="Detect my current location"
-            >
-              <MapPin className='text-red-400 w-6 h-6' />
-            </button>
+
+          <div className="dashboard-status-panel animate-slide-down">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-white/40">Workspace</p>
+              <p className="mt-1 text-lg font-black text-white">Atmosphere Pro</p>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <div className="metric-tile">
+                <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-300">API</p>
+                <p className="mt-1 text-sm font-black text-white">Live</p>
+              </div>
+              <div className="metric-tile">
+                <p className="text-[11px] font-bold uppercase tracking-widest text-cyan-300">Refresh</p>
+                <p className="mt-1 text-sm font-black text-white">5 min</p>
+              </div>
+            </div>
           </div>
+        </section>
+
+        <div id="search" className="control-bar mb-8 scroll-mt-28 p-4 animate-slide-down">
+          <div className="flex flex-col items-center justify-between gap-3 md:flex-row">
+            <div className="w-full md:flex-1">
+              <SearchBar onSearch={(city) => fetchWeatherAndForecast({ city })} theme={theme} />
+            </div>
+
+            <div className="flex flex-shrink-0 items-center gap-2">
+              <button
+                onClick={() => setIsCelsius(!isCelsius)}
+                className="flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/10 px-4 py-2.5 text-sm font-bold transition-all duration-200 hover:scale-105 active:scale-95"
+              >
+                <span className="text-white/60">Unit:</span>
+                <span className="font-black text-cyan-200">{isCelsius ? '\u00B0C' : '\u00B0F'}</span>
+              </button>
+
+              <button
+                onClick={handleAuto}
+                title="Detect my location"
+                className="rounded-xl border border-white/15 bg-white/10 p-2.5 transition-all duration-200 hover:scale-110 active:scale-95"
+              >
+                <MapPin className="h-5 w-5 text-rose-300" />
+              </button>
+
+              <div className="hidden border-l border-white/10 pl-3 lg:block">
+                <LiveClock />
+              </div>
+            </div>
+          </div>
+
+          {updatedLabel && (
+            <div className="mt-3 flex items-center gap-3 border-t border-white/8 pt-3">
+              <div className="flex items-center gap-1.5">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping-soft absolute inline-flex h-full w-full rounded-full bg-emerald-400" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                </span>
+                <span className="text-xs font-medium text-white/45">Updated at {updatedLabel}</span>
+              </div>
+              {autoRefreshing && (
+                <div className="flex items-center gap-1 text-xs text-cyan-200/75">
+                  <RefreshCw size={10} className="animate-spin" />
+                  <span>Refreshing...</span>
+                </div>
+              )}
+              <span className="ml-auto hidden text-xs text-white/30 sm:block">Auto-refresh every 5 min</span>
+            </div>
+          )}
         </div>
 
-        {/* Dynamic Display state */}
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-32 space-y-4">
+          <div className="flex flex-col items-center justify-center gap-6 py-40 animate-slide-up">
             <div className="relative">
-              <div className="absolute -inset-2 rounded-full bg-blue-500/20 blur animate-pulse"></div>
-              <Compass className="animate-spin text-white w-16 h-16" />
+              <div className="absolute inset-0 rounded-full bg-cyan-400/20 blur-xl animate-glow-pulse" />
+              <div className="glass-card relative rounded-full p-6">
+                <Loader2 className="h-12 w-12 animate-spin text-cyan-300" />
+              </div>
             </div>
-            <p className="text-xl font-light tracking-widest text-white animate-pulse">Loading live weather data...</p>
+            <div className="text-center">
+              <p className="text-xl font-bold tracking-wide text-white/85">Fetching live weather data</p>
+              <p className="mt-1 text-sm text-white/40">Connecting to weather servers...</p>
+            </div>
           </div>
         ) : error ? (
-          <div className="max-w-md mx-auto my-12 bg-red-500/25 border border-red-500/30 p-6 rounded-3xl text-center shadow-xl backdrop-blur-md">
-            <AlertCircle className="w-12 h-12 text-red-300 mx-auto mb-4 animate-bounce" />
-            <h3 className="text-xl font-bold text-white mb-2">Something went wrong</h3>
-            <p className="text-red-100 font-light mb-6">{error}</p>
-            <button 
-              onClick={handleAuto} 
-              className="px-6 py-2.5 bg-white text-blue-900 rounded-xl font-bold shadow hover:bg-slate-100 transition-all duration-200"
-            >
-              Reset Search
+          <div className="glass-card mx-auto my-16 max-w-sm p-8 text-center animate-scale-up">
+            <div className="mb-4 inline-flex rounded-2xl border border-red-400/25 bg-red-400/15 p-4">
+              <AlertCircle className="h-10 w-10 text-red-300" />
+            </div>
+            <h3 className="mb-2 text-lg font-bold text-white">Could not load weather</h3>
+            <p className="mb-6 text-sm font-medium text-red-200/85">{error}</p>
+            <button onClick={handleAuto} className="btn-hero mx-auto">
+              <RotateCcw size={16} />
+              Try again
             </button>
           </div>
         ) : current ? (
-          <div className='space-y-8 animate-fadeIn duration-500'>
-            {/* Hero Weather Section */}
-            <div className='relative max-w-xl mx-auto'>
+          <div className="space-y-6">
+            <div className="relative card-enter">
               <CurrentWeather weather={current} isCelsius={isCelsius} theme={theme} />
               {token && (
-                <button 
-                  onClick={handleSaveLocation} 
+                <button
+                  onClick={handleSaveLocation}
                   disabled={savingLocation}
-                  className={`absolute top-6 right-6 p-3 rounded-2xl hover:scale-110 hover:rotate-12 active:scale-95 transition-all duration-300 border border-white/10 ${theme.cardBg}`}
-                  title="Bookmark this location"
+                  title="Save this location"
+                  className="absolute right-5 top-5 rounded-2xl border border-white/15 bg-white/10 p-3 transition-all duration-300 hover:scale-110 active:scale-95 disabled:opacity-50"
                 >
-                  {savingLocation ? (
-                    <RefreshCw className="w-6 h-6 text-yellow-300 animate-spin" />
-                  ) : (
-                    <BookmarkPlus className='text-yellow-400 w-6 h-6' />
-                  )}
+                  {savingLocation
+                    ? <RefreshCw className="h-5 w-5 animate-spin text-amber-200" />
+                    : <BookmarkPlus className="h-5 w-5 text-amber-300" />}
                 </button>
               )}
             </div>
 
-            {/* Weather Trends Visualization */}
-            <WeatherChart forecast={forecast} isCelsius={isCelsius} theme={theme} />
+            <div id="trends" className="card-enter scroll-mt-28 delay-200">
+              <WeatherChart forecast={forecast} isCelsius={isCelsius} theme={theme} />
+            </div>
 
-            {/* Extended Forecast Cards */}
-            <Forecast forecast={forecast} isCelsius={isCelsius} theme={theme} />
+            <div id="forecast" className="card-enter scroll-mt-28 delay-300">
+              <Forecast forecast={forecast} isCelsius={isCelsius} theme={theme} />
+            </div>
 
-            {/* Favorites Manager */}
-            <SavedLocations 
-              onSelectLocation={(city) => fetchWeatherAndForecast({ city })} 
-              refreshTrigger={refreshTrigger}
-              theme={theme}
-            />
+            {token && (
+              <div id="saved" className="card-enter scroll-mt-28 delay-400">
+                <SavedLocations
+                  onSelectLocation={(city) => fetchWeatherAndForecast({ city })}
+                  refreshTrigger={refreshTrigger}
+                  theme={theme}
+                />
+              </div>
+            )}
           </div>
         ) : null}
       </div>
