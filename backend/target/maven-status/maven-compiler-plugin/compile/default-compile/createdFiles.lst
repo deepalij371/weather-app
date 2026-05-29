@@ -5,8 +5,10 @@ com\example\weatherapp\config\KafkaTopicConfig.class
 com\example\weatherapp\service\WeatherService.class
 com\example\weatherapp\security\JwtAuthenticationFilter.class
 com\example\weatherapp\exception\GlobalExceptionHandler$ErrorResponse$ErrorResponseBuilder.class
+com\example\weatherapp\service\WeatherService$WeatherCondition.class
 com\example\weatherapp\exception\CityNotFoundException.class
 com\example\weatherapp\model\User$UserBuilder.class
+com\example\weatherapp\service\WeatherService$OpenMeteoLocation.class
 com\example\weatherapp\exception\WeatherApiException.class
 com\example\weatherapp\dto\AuthRequest$AuthRequestBuilder.class
 com\example\weatherapp\dto\WeatherResponse.class
@@ -24,6 +26,7 @@ com\example\weatherapp\repository\UserRepository.class
 com\example\weatherapp\dto\AuthRequest.class
 com\example\weatherapp\dto\AuthResponse$AuthResponseBuilder.class
 com\example\weatherapp\security\SecurityConfig.class
+com\example\weatherapp\config\CacheConfig$1.class
 com\example\weatherapp\controller\SavedLocationController.class
 com\example\weatherapp\exception\GlobalExceptionHandler.class
 com\example\weatherapp\config\CacheConfig.class
@@ -32,7 +35,9 @@ com\example\weatherapp\dto\ForecastResponse$Main.class
 com\example\weatherapp\controller\AuthController.class
 com\example\weatherapp\service\KafkaProducerService.class
 com\example\weatherapp\WeatherApplication.class
+com\example\weatherapp\dto\WeatherResponse$Clouds.class
 com\example\weatherapp\repository\SavedLocationRepository.class
 com\example\weatherapp\model\SavedLocation.class
 com\example\weatherapp\dto\WeatherResponse$Weather.class
 com\example\weatherapp\service\KafkaConsumerService.class
+com\example\weatherapp\dto\WeatherResponse$Sys.class

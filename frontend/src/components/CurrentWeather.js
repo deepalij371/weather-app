@@ -1,88 +1,113 @@
 import React from 'react';
-import { Droplets, Wind, Compass, Sun, Eye, Thermometer } from 'lucide-react';
+import { Droplets, Wind, Thermometer, Gauge, Eye, Sunrise, Sunset, ArrowUp, ArrowDown } from 'lucide-react';
+
+const convertTemp = (temp, isCelsius) =>
+  isCelsius ? Math.round(temp) : Math.round((temp * 9) / 5 + 32);
+
+const formatTemp = (temp, isCelsius) => `${convertTemp(temp, isCelsius)}\u00B0${isCelsius ? 'C' : 'F'}`;
+
+const formatTime = (ts) =>
+  new Date(ts * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+const StatTile = ({ icon: Icon, iconColor, label, value }) => (
+  <div className='stat-card flex items-center gap-3'>
+    <div className='flex-shrink-0 p-2.5 rounded-xl' style={{ background: 'rgba(255,255,255,0.08)' }}>
+      <Icon size={18} className={iconColor} />
+    </div>
+    <div className='min-w-0'>
+      <p className='text-[11px] uppercase tracking-widest font-bold text-white/35 mb-0.5'>{label}</p>
+      <p className='text-base font-bold text-white truncate'>{value}</p>
+    </div>
+  </div>
+);
 
 const CurrentWeather = ({ weather, isCelsius, theme }) => {
   if (!weather) return null;
 
-  const convertTemp = (temp) => isCelsius ? Math.round(temp) : Math.round((temp * 9/5) + 32);
-  const cardStyle = theme?.cardBg || 'bg-white text-slate-800 shadow-lg';
-  const textSecondary = theme?.textSecondary || 'text-slate-500';
-  const accentStyle = theme?.accent || 'bg-blue-50 text-blue-800';
+  const temp     = convertTemp(weather.main.temp, isCelsius);
+  const tempMin  = formatTemp(weather.main.temp_min, isCelsius);
+  const tempMax  = formatTemp(weather.main.temp_max, isCelsius);
+  const unit     = isCelsius ? '\u00B0C' : '\u00B0F';
+  const desc     = weather.weather[0].description;
+  const icon     = weather.weather[0].icon;
 
-  // Format sunrise/sunset
-  const formatTime = (timestamp) => {
-    return new Date(timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
+  const stats = [
+    { icon: Droplets,    iconColor: 'text-cyan-400',   label: 'Humidity',    value: `${weather.main.humidity}%` },
+    { icon: Wind,        iconColor: 'text-teal-400',   label: 'Wind',        value: `${weather.wind.speed} m/s` },
+    { icon: Thermometer, iconColor: 'text-orange-400', label: 'Feels Like',  value: formatTemp(weather.main.feels_like, isCelsius) },
+    { icon: Gauge,       iconColor: 'text-violet-400', label: 'Pressure',    value: `${weather.main.pressure} hPa` },
+    { icon: Eye,         iconColor: 'text-sky-400',    label: 'Visibility',  value: `${Math.round(weather.visibility / 1000)} km` },
+    { icon: Sunrise,     iconColor: 'text-amber-400',  label: 'Sunrise',     value: formatTime(weather.sys.sunrise) },
+    { icon: Sunset,      iconColor: 'text-rose-400',   label: 'Sunset',      value: formatTime(weather.sys.sunset) },
+    { icon: Droplets,    iconColor: 'text-blue-300',   label: 'Cloud Cover', value: `${weather.clouds?.all ?? 0}%` },
+  ];
 
   return (
-    <div className={`p-8 rounded-3xl w-full max-w-xl mx-auto shadow-2xl transition-all duration-500 hover:shadow-3xl ${cardStyle}`}>
-      <div className='flex justify-between items-start mb-8'>
-        <div>
-          <h2 className='text-4xl font-extrabold tracking-tight mb-1'>{weather.name}</h2>
-          <p className={`text-lg font-light capitalize tracking-wide ${textSecondary}`}>{weather.weather[0].description}</p>
-        </div>
-        <div className="relative group">
-          <div className="absolute -inset-0.5 bg-gradient-to-r from-yellow-400 to-amber-500 rounded-full blur opacity-30 group-hover:opacity-75 transition duration-500"></div>
-          <img 
-            src={`http://openweathermap.org/img/wn/${weather.weather[0].icon}@4x.png`} 
-            alt='weather' 
-            className='w-24 h-24 relative transform hover:scale-105 transition-transform duration-300' 
-          />
-        </div>
-      </div>
+    <div className='glass-card overflow-hidden w-full'>
+      {/* Top gradient accent */}
+      <div className='absolute top-0 left-0 right-0 h-0.5'
+        style={{ background: 'linear-gradient(90deg, transparent, rgba(99,102,241,0.8), rgba(139,92,246,0.6), transparent)' }} />
 
-      <div className='text-7xl font-extrabold tracking-tighter mb-8 text-center flex items-start justify-center gap-1'>
-        <span>{convertTemp(weather.main.temp)}</span>
-        <span className="text-4xl font-light mt-2 text-white/80">°{isCelsius ? 'C' : 'F'}</span>
-      </div>
+      {/* Ambient glow behind icon */}
+      <div className='absolute top-0 right-0 w-64 h-64 rounded-full pointer-events-none'
+        style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%)', transform: 'translate(30%, -30%)' }} />
 
-      <div className='grid grid-cols-2 gap-4 mt-8'>
-        <div className={`flex items-center gap-4 p-4 rounded-2xl transition-all duration-300 hover:bg-white/20 ${accentStyle}`}>
-          <div className="p-3 bg-white/10 rounded-xl"><Droplets className='w-6 h-6' /></div>
+      <div className='p-6 md:p-8'>
+        {/* Header row */}
+        <div className='flex justify-between items-start mb-4'>
           <div>
-            <p className={`text-xs uppercase tracking-wider font-semibold ${textSecondary}`}>Humidity</p>
-            <p className='text-lg font-bold'>{weather.main.humidity}%</p>
+            <div className='flex items-center gap-2 mb-1'>
+              <span className='text-xs font-bold uppercase tracking-widest text-white/40'>
+                {weather.sys.country}
+              </span>
+              <span className='w-1 h-1 rounded-full bg-white/20' />
+              <span className='text-xs font-medium text-white/30'>
+                {weather.coord.lat.toFixed(2)} N, {weather.coord.lon.toFixed(2)} E
+              </span>
+            </div>
+            <h2 className='text-4xl md:text-5xl font-black tracking-tight text-white'>{weather.name}</h2>
+            <p className='text-lg capitalize text-white/55 font-medium mt-1'>{desc}</p>
           </div>
-        </div>
-        
-        <div className={`flex items-center gap-4 p-4 rounded-2xl transition-all duration-300 hover:bg-white/20 ${accentStyle}`}>
-          <div className="p-3 bg-white/10 rounded-xl"><Wind className='w-6 h-6' /></div>
-          <div>
-            <p className={`text-xs uppercase tracking-wider font-semibold ${textSecondary}`}>Wind Speed</p>
-            <p className='text-lg font-bold'>{weather.wind.speed} m/s</p>
-          </div>
-        </div>
 
-        <div className={`flex items-center gap-4 p-4 rounded-2xl transition-all duration-300 hover:bg-white/20 ${accentStyle}`}>
-          <div className="p-3 bg-white/10 rounded-xl"><Thermometer className='w-6 h-6' /></div>
-          <div>
-            <p className={`text-xs uppercase tracking-wider font-semibold ${textSecondary}`}>Feels Like</p>
-            <p className='text-lg font-bold'>{convertTemp(weather.main.feels_like)}°{isCelsius ? 'C' : 'F'}</p>
+          {/* Weather icon */}
+          <div className='flex-shrink-0 relative'>
+            <div className='absolute inset-0 bg-amber-400/20 rounded-full blur-2xl animate-glow-pulse pointer-events-none' />
+            <img
+              src={`https://openweathermap.org/img/wn/${icon}@4x.png`}
+              alt={desc}
+              className='w-24 h-24 md:w-28 md:h-28 relative animate-weather-icon drop-shadow-2xl'
+            />
           </div>
         </div>
 
-        <div className={`flex items-center gap-4 p-4 rounded-2xl transition-all duration-300 hover:bg-white/20 ${accentStyle}`}>
-          <div className="p-3 bg-white/10 rounded-xl"><Compass className='w-6 h-6' /></div>
-          <div>
-            <p className={`text-xs uppercase tracking-wider font-semibold ${textSecondary}`}>Pressure</p>
-            <p className='text-lg font-bold'>{weather.main.pressure} hPa</p>
+        {/* Temperature */}
+        <div className='flex items-end gap-4 mb-3'>
+          <div className='flex items-start gap-1'>
+            <span className='text-8xl md:text-9xl font-black text-white tracking-tighter leading-none'>
+              {temp}
+            </span>
+            <span className='text-3xl font-bold text-white/50 mt-3'>{unit}</span>
           </div>
-        </div>
-        
-        <div className={`flex items-center gap-4 p-4 rounded-2xl transition-all duration-300 hover:bg-white/20 ${accentStyle}`}>
-          <div className="p-3 bg-white/10 rounded-xl"><Sun className='w-6 h-6' /></div>
-          <div>
-            <p className={`text-xs uppercase tracking-wider font-semibold ${textSecondary}`}>Sunrise</p>
-            <p className='text-lg font-bold'>{formatTime(weather.sys.sunrise)}</p>
+          <div className='flex flex-col gap-1.5 pb-2'>
+            <div className='flex items-center gap-1.5 text-sm font-bold text-red-300'>
+              <ArrowUp size={14} className='text-red-400' />
+              <span>{tempMax}</span>
+            </div>
+            <div className='flex items-center gap-1.5 text-sm font-bold text-blue-300'>
+              <ArrowDown size={14} className='text-blue-400' />
+              <span>{tempMin}</span>
+            </div>
           </div>
         </div>
 
-        <div className={`flex items-center gap-4 p-4 rounded-2xl transition-all duration-300 hover:bg-white/20 ${accentStyle}`}>
-          <div className="p-3 bg-white/10 rounded-xl"><Eye className='w-6 h-6' /></div>
-          <div>
-            <p className={`text-xs uppercase tracking-wider font-semibold ${textSecondary}`}>Visibility</p>
-            <p className='text-lg font-bold'>{Math.round(weather.visibility / 1000)} km</p>
-          </div>
+        {/* Divider */}
+        <div className='h-px my-6' style={{ background: 'linear-gradient(90deg, rgba(255,255,255,0.1), transparent)' }} />
+
+        {/* Stats grid */}
+        <div className='grid grid-cols-2 sm:grid-cols-4 gap-3'>
+          {stats.map(s => (
+            <StatTile key={s.label} {...s} />
+          ))}
         </div>
       </div>
     </div>
